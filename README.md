@@ -1,106 +1,168 @@
-# YouTube Shorts Cleaner Pro
+<p align="center">
+  <img src="icons/icon128.png" alt="YouTube Shorts Cleaner Pro" width="96" />
+</p>
 
-A production-quality **Chrome Extension (Manifest V3)** that removes YouTube Shorts from the YouTube UI and optionally redirects `/shorts/` URLs to the standard watch player.
+<h1 align="center">YouTube Shorts Cleaner Pro</h1>
+
+<p align="center">
+  <strong>A Chrome extension that removes YouTube Shorts from your feed — giving you a clean, distraction-free experience.</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/manifest-v3-blue?style=flat-square" alt="Manifest V3" />
+  <img src="https://img.shields.io/badge/version-1.0.1-green?style=flat-square" alt="Version 1.0.1" />
+  <img src="https://img.shields.io/badge/chrome-105%2B-yellow?style=flat-square" alt="Chrome 105+" />
+  <img src="https://img.shields.io/badge/license-MIT-purple?style=flat-square" alt="MIT License" />
+</p>
 
 ---
 
-## Features
+## ✨ Features
 
 | Feature | Description |
-|---|---|
-| 🏠 Homepage Shelves | Hides Shorts rows/shelves from the YouTube home feed |
-| 🔍 Search Results | Removes Shorts cards from search result pages |
-| 📌 Sidebar Link | Removes the "Shorts" entry from the left navigation sidebar |
-| 🔀 Redirect Shorts | Automatically redirects `/shorts/<id>` to `/watch?v=<id>` |
-| 🔢 Badge Counter | Shows how many elements were hidden in the current tab |
-| 🌙 Dark Theme UI | Clean, modern popup with accessible controls |
-| ⚡ MutationObserver | Handles YouTube's SPA dynamic loading without `setInterval` |
+|:--------|:------------|
+| 🏠 **Homepage Shelves** | Hides Shorts rows and shelves from the YouTube home feed |
+| 🔍 **Search Results** | Removes Shorts cards from search result pages |
+| 📌 **Sidebar Link** | Removes the "Shorts" entry from the left navigation sidebar |
+| 🔀 **Auto-Redirect** | Automatically redirects `/shorts/<id>` to `/watch?v=<id>` |
+| 🔢 **Badge Counter** | Shows how many Shorts elements were hidden in the current tab |
+| ⚡ **Smart Detection** | Uses `MutationObserver` to handle YouTube's SPA navigation — no polling |
+| 🎛️ **Per-Feature Toggles** | Enable or disable each feature independently via the popup |
+| 🌙 **Dark Theme Popup** | Clean, modern dark UI with accessible toggle controls |
 
 ---
 
-## Installation (Unpacked Extension)
+## 📦 Installation
 
-1. **Download or clone** this repository to a local folder.
-2. Open **Google Chrome** and navigate to `chrome://extensions/`.
-3. Enable **Developer mode** (toggle in the top-right corner).
-4. Click **"Load unpacked"**.
-5. Select the root folder of this project (the one containing `manifest.json`).
-6. The extension icon will appear in your toolbar. Pin it for easy access.
+> **Chrome Web Store** listing coming soon. For now, install as an unpacked extension:
 
-> **Note:** Icons at `icons/icon16.png`, `icons/icon32.png`, `icons/icon48.png`, and `icons/icon128.png` are referenced by the manifest. Add your own PNG icons in those sizes, or remove the `icons` fields from `manifest.json` to use the default puzzle-piece icon.
+1. **Clone** this repository:
+   ```bash
+   git clone https://github.com/yourusername/ytshortremover.git
+   ```
+2. Open **Chrome** and go to `chrome://extensions/`
+3. Enable **Developer mode** (top-right toggle)
+4. Click **"Load unpacked"** and select the project folder
+5. **Pin** the extension icon in your toolbar for easy access
 
 ---
 
-## Architecture
+## 🖼️ Screenshots
+
+<p align="center">
+  <em>Popup UI — toggle individual filters on/off</em>
+</p>
+
+<!-- Replace with actual screenshots -->
+<!-- <p align="center">
+  <img src="screenshots/popup.png" alt="Popup UI" width="320" />
+  <img src="screenshots/before-after.png" alt="Before & After" width="640" />
+</p> -->
+
+---
+
+## 🏗️ Architecture
 
 ```
 ytshortremover/
-├── manifest.json       MV3 manifest — permissions, content scripts, popup
-├── background.js       Service worker — defaults on install, badge updates
-├── content.js          Core logic — MutationObserver, DOM hiding, redirect
-├── styles.css          CSS injected at document_start for fast initial hiding
-├── popup.html          Popup markup
-├── popup.css           Dark-theme popup styles
-├── popup.js            Popup logic — load/save settings, render state
-└── icons/              Extension icons (16, 32, 48, 128 px)
+├── manifest.json        # MV3 manifest — permissions, content scripts, popup
+├── background.js        # Service worker — defaults on install, badge updates
+├── content.js           # Core engine — MutationObserver, DOM hiding, redirect
+├── styles.css           # Fast CSS hiding (injected at document_start)
+├── popup.html           # Popup markup
+├── popup.css            # Dark-theme popup styles
+├── popup.js             # Popup logic — settings UI, badge count display
+└── icons/               # Extension icons (16, 32, 48, 128 px)
 ```
 
-### How it works
+### How It Works
 
-#### `content.js`
-- Runs at `document_start` on all `youtube.com` pages.
-- Reads settings from `chrome.storage.sync` once on load, then listens for `storage.onChanged` for live updates from the popup.
-- Patches `history.pushState` / `history.replaceState` and listens for `yt-navigate-finish` to detect YouTube's SPA route changes.
-- Uses a single `MutationObserver` on `document.documentElement` with `childList + subtree`. On each batch of mutations, it either runs a fast per-subtree pass (for small additions) or a debounced full-page sweep (for large renders like initial feed load).
-- Tracks processed nodes in a `WeakSet` to avoid duplicate work and memory leaks.
-- Sends badge count updates to the background service worker after each pass.
+#### Two-Layer Hiding Strategy
 
-#### `background.js`
-- Writes `DEFAULT_SETTINGS` to `chrome.storage.sync` on first install.
-- Receives `UPDATE_BADGE` messages from content scripts and calls `chrome.action.setBadgeText`.
+1. **CSS Layer** (`styles.css`) — Injected at `document_start` before the page renders. Hides unambiguous Shorts containers (`ytd-reel-shelf-renderer`, `ytd-shorts`, etc.) instantly, preventing any flash of Shorts content.
 
-#### `styles.css`
-- Injected by the browser before the page renders, providing immediate CSS-based hiding for known selector patterns. This prevents a flash of Shorts content before JavaScript runs.
+2. **JavaScript Layer** (`content.js`) — Runs a `MutationObserver` on the full document tree. Handles dynamic content, per-item filtering, and respects user settings. Uses a debounced full-page sweep + fast per-subtree pass for optimal performance.
 
-#### `popup.html / popup.css / popup.js`
-- Reads settings from storage and renders them.
-- Saves settings immediately on each toggle change (no "Save" button needed).
-- The "Reset to Defaults" button restores factory settings and re-renders the UI.
-- Reads the badge text of the active tab to display the hidden-element count.
+#### SPA Navigation Handling
+
+YouTube is a Single Page Application — it doesn't do full page reloads when navigating. The extension patches `history.pushState` / `replaceState` and listens for YouTube's `yt-navigate-finish` event to detect route changes and re-clean the page.
+
+#### Watch Page Intelligence
+
+On video watch pages (`/watch?v=...`), the extension uses a reduced set of selectors to avoid accidentally hiding the recommended videos sidebar. Only direct Shorts containers (like "Shorts remixing this video" shelves) are removed; regular video recommendations are left untouched.
 
 ---
 
-## Permissions Used
+## ⚙️ Settings
 
-| Permission | Reason |
-|---|---|
+All settings are stored in `chrome.storage.sync` and apply instantly — no page reload required.
+
+| Setting | Default | Description |
+|:--------|:-------:|:------------|
+| Enable Protection | ✅ | Master toggle for the entire extension |
+| Homepage Shelves | ✅ | Hide Shorts rows on home feed |
+| Search Results | ✅ | Remove Shorts from search results |
+| Sidebar Link | ✅ | Remove Shorts entry from navigation |
+| Redirect Shorts | ✅ | Auto-redirect `/shorts/` URLs to `/watch` |
+| Show Counter | ✅ | Display hidden-element count on the badge |
+
+---
+
+## 🔒 Permissions
+
+This extension requests minimal permissions:
+
+| Permission | Why |
+|:-----------|:----|
 | `storage` | Persist user settings via `chrome.storage.sync` |
-| `tabs` | Query the active tab's ID to read/set the badge count |
+| `tabs` | Query the active tab to read/set the badge count |
 | `host_permissions: youtube.com/*` | Inject content script and CSS into YouTube pages |
 
+> No data leaves your browser. No analytics. No tracking. Ever.
+
 ---
 
-## Known Selector Limitations
+## ⚠️ Known Limitations
 
-YouTube's DOM is **not a stable public API** and changes frequently. The selectors used in this extension are accurate as of early 2025, but may need updating if YouTube rolls out major redesigns.
+YouTube's DOM is **not a stable public API** and changes frequently. The selectors in this extension are verified as of **March 2026**, but may need updating after major YouTube redesigns.
 
 **Most fragile selectors:**
-- `ytd-rich-shelf-renderer[is-shorts]` — depends on YouTube keeping the `is-shorts` attribute.
-- `:has(a[href*='/shorts/'])` — relies on CSS `:has()` support (Chrome 105+) and YouTube keeping `/shorts/` in href attributes.
-- `ytd-guide-entry-renderer:has(a[title='Shorts'])` — depends on the exact title string remaining "Shorts".
+- `ytd-rich-shelf-renderer[is-shorts]` — depends on the `is-shorts` attribute
+- `:has(a[href*='/shorts/'])` — relies on CSS `:has()` support (Chrome 105+)
+- `ytd-guide-entry-renderer:has(a[title='Shorts'])` — depends on the exact title string
 
-**Fallback:** `styles.css` also hides `ytd-reel-shelf-renderer` which is the internal component name used for Shorts shelves, and is generally more stable than attribute-based selectors.
-
-**To update selectors:** Open YouTube, right-click a Shorts element → Inspect, find the component tag, and update `CONFIG.selectors` in `content.js` and the matching rules in `styles.css`.
+**To update selectors:** Open YouTube → right-click a Shorts element → Inspect → find the component tag → update `CONFIG.selectors` in `content.js` and matching rules in `styles.css`.
 
 ---
 
-## Future Improvements
+## 🗺️ Roadmap
 
-1. **Selector auto-recovery** — Test selectors on load and log a warning when none match, making it easier to detect when YouTube changes its DOM.
-2. **Block list export** — Allow users to export a log of blocked Shorts URLs.
-3. **Per-domain statistics** — Track and display cumulative blocked counts across sessions using `chrome.storage.local`.
-4. **Whitelist mode** — Allow users to temporarily allow Shorts on specific channels.
-5. **Keyboard shortcut** — Add a `chrome.commands` shortcut to toggle the extension on/off without opening the popup.
-6. **Auto-update selectors** — Fetch a remotely hosted selector config (with user opt-in) to survive YouTube DOM changes without requiring an extension update.
-7. **Firefox support** — The extension is largely compatible with Firefox's MV3 implementation; minor changes to the manifest would enable cross-browser publishing.
+- [ ] **Selector auto-recovery** — Detect when selectors stop matching and warn the user
+- [ ] **Per-channel whitelist** — Allow Shorts on specific channels
+- [ ] **Keyboard shortcut** — Toggle the extension via `chrome.commands`
+- [ ] **Session statistics** — Track cumulative blocked counts across sessions
+- [ ] **Firefox support** — Cross-browser publishing with minor manifest changes
+- [ ] **Auto-update selectors** — Fetch remote selector config (opt-in) to survive YouTube DOM changes
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! If YouTube changes its DOM and breaks the extension:
+
+1. Open YouTube and right-click on a Shorts element → **Inspect**
+2. Find the new component tag or attribute
+3. Update `CONFIG.selectors` in `content.js` and the matching rules in `styles.css`
+4. Submit a pull request
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ to make YouTube watchable again.</sub>
+</p>
