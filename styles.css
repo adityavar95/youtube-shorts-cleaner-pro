@@ -3,40 +3,19 @@
  * YouTube Shorts Cleaner Pro
  *
  * This file provides a fast, paint-efficient hiding layer that fires before
- * JavaScript runs. content.js also hides elements via JS for dynamic content.
+ * JavaScript runs. It ONLY targets unambiguous Shorts-specific containers
+ * (shelves/sections) — never individual video items, since those need
+ * JavaScript-level setting checks and more precise selector logic.
  *
- * These rules use !important to override YouTube's inline styles.
+ * Per-item hiding is handled entirely by content.js where settings are
+ * respected and selectors can be more intelligent.
  */
 
 /* ── Shorts shelves / reel sections on home & feed ─────────────────────── */
+/* These are dedicated Shorts containers that never hold regular videos.    */
 ytd-reel-shelf-renderer,
 ytd-shorts,
 #shorts-container,
-ytd-rich-shelf-renderer[is-shorts],
-ytd-rich-section-renderer:has(ytd-reel-shelf-renderer),
-ytd-rich-section-renderer:has(ytd-rich-shelf-renderer[is-shorts]) {
-  display: none !important;
-}
-
-/* ── Individual Shorts video items ──────────────────────────────────────── */
-ytd-video-renderer[is-shorts],
-ytd-grid-video-renderer[is-shorts],
-ytd-rich-item-renderer:has(a[href*="/shorts/"]),
-ytd-compact-video-renderer:has(a[href*="/shorts/"]),
-ytd-video-renderer:has(a[href*="/shorts/"]),
-ytd-grid-video-renderer:has(a[href*="/shorts/"]) {
-  display: none !important;
-}
-
-/* ── Sidebar navigation entries ─────────────────────────────────────────── */
-ytd-guide-entry-renderer:has(a[title="Shorts"]),
-ytd-guide-entry-renderer:has(a[href="/shorts"]),
-ytd-mini-guide-entry-renderer:has(a[title="Shorts"]),
-ytd-mini-guide-entry-renderer:has(a[href="/shorts"]) {
-  display: none !important;
-}
-
-/* ── Channel page Shorts section ─────────────────────────────────────────── */
-ytd-item-section-renderer:has(ytd-reel-shelf-renderer) {
+ytd-rich-shelf-renderer[is-shorts] {
   display: none !important;
 }

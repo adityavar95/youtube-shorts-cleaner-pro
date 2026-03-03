@@ -14,12 +14,17 @@
 // Config & Selectors
 // ---------------------------------------------------------------------------
 const CONFIG = {
-  version: "1.0.0",
+  version: "1.0.1",
   debounceMs: 120,
   // CSS selectors targeting Shorts elements across YouTube layouts.
-  // NOTE: YouTube's DOM is subject to change; these are accurate as of 2024-2025.
+  // NOTE: YouTube's DOM changes frequently; last verified March 2026.
+  //
+  // IMPORTANT: On the watch page, YouTube now uses `yt-lockup-view-model`
+  // for sidebar recommendations (not `ytd-compact-video-renderer`), and
+  // `a#thumbnail` no longer exists inside them. Selectors must be precise
+  // to avoid hiding regular videos.
   selectors: {
-    // Shelf / section containers on home/feed
+    // Shelf / section containers on home/feed — dedicated Shorts containers
     shelves: [
       "ytd-rich-shelf-renderer[is-shorts]",
       "ytd-reel-shelf-renderer",
@@ -28,15 +33,18 @@ const CONFIG = {
       "ytd-rich-section-renderer:has(ytd-rich-shelf-renderer[is-shorts])",
       "ytd-rich-section-renderer:has(ytd-reel-shelf-renderer)",
     ],
-    // Individual short video items in feeds / search
+    // Individual Shorts items in feeds / search.
+    // Uses attribute-based selectors ([is-shorts]) where available.
+    // For :has() selectors, we target the specific thumbnail/href pattern
+    // to avoid false positives on the watch page sidebar.
     items: [
       "ytd-video-renderer[is-shorts]",
       "ytd-grid-video-renderer[is-shorts]",
+      // Home/feed items — these use a#thumbnail for the primary link
       "ytd-rich-item-renderer:has(a[href*='/shorts/'])",
-      "ytd-compact-video-renderer:has(a[href*='/shorts/'])",
-      "ytd-video-renderer:has(a[href*='/shorts/'])",
-      "ytd-grid-video-renderer:has(a[href*='/shorts/'])",
-      "ytd-search-pyv-renderer",
+      // Search/legacy items
+      "ytd-video-renderer:has(a#thumbnail[href*='/shorts/'])",
+      "ytd-grid-video-renderer:has(a#thumbnail[href*='/shorts/'])",
     ],
     // Left-sidebar navigation entry
     sidebar: [
@@ -122,12 +130,16 @@ function hideAll(selectorList, root = document) {
 /** Report the current hidden count to the background service worker. */
 function reportCount() {
   if (!settings.showCounter) return;
-  chrome.runtime.sendMessage({ type: "UPDATE_BADGE", count: hiddenCount }).catch(() => {});
+  chrome.runtime.sendMessage({ type: "UPDATE_BADGE", count: hiddenCount }).catch(() => { });
 }
 
 // ---------------------------------------------------------------------------
 // Shorts detection & redirection
 // ---------------------------------------------------------------------------
+
+function isWatchPage(url = location.href) {
+  return /youtube\.com\/watch/.test(url);
+}
 
 function isShortsPage(url = location.href) {
   return /youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/.test(url);
@@ -164,18 +176,35 @@ function redirectFromShorts() {
 /**
  * Full-page sweep: run all selector groups depending on active settings.
  * Called on initial load, route change, and after large DOM mutations.
+ *
+ * On watch pages, we SKIP broad shelf/section selectors because YouTube
+ * nests a "Shorts remixing this video" reel-shelf inside the same sidebar
+ * container as regular recommendations. Hiding the parent section would
+ * wipe out the entire sidebar. The reel-shelf itself is still hidden by
+ * its direct selector (ytd-reel-shelf-renderer) in the shelves list.
  */
 function cleanPage() {
   if (!settings.enabled) return;
 
   const prevCount = hiddenCount;
+  const onWatchPage = isWatchPage();
 
   if (settings.hideHomeShelves) {
-    hideAll(CONFIG.selectors.shelves);
-    hideAll(CONFIG.selectors.channelSections);
+    if (onWatchPage) {
+      // On watch pages, only hide direct Shorts containers, not parent sections
+      hideAll([
+        "ytd-rich-shelf-renderer[is-shorts]",
+        "ytd-reel-shelf-renderer",
+        "ytd-shorts",
+        "#shorts-container",
+      ]);
+    } else {
+      hideAll(CONFIG.selectors.shelves);
+      hideAll(CONFIG.selectors.channelSections);
+    }
   }
 
-  if (settings.hideSearchResults) {
+  if (settings.hideSearchResults && !onWatchPage) {
     hideAll(CONFIG.selectors.items);
   }
 
@@ -223,11 +252,22 @@ function cleanSubtree(root) {
     }
   };
 
+  const onWatchPage = isWatchPage();
+
   if (settings.hideHomeShelves) {
-    check(CONFIG.selectors.shelves);
-    check(CONFIG.selectors.channelSections);
+    if (onWatchPage) {
+      check([
+        "ytd-rich-shelf-renderer[is-shorts]",
+        "ytd-reel-shelf-renderer",
+        "ytd-shorts",
+        "#shorts-container",
+      ]);
+    } else {
+      check(CONFIG.selectors.shelves);
+      check(CONFIG.selectors.channelSections);
+    }
   }
-  if (settings.hideSearchResults) {
+  if (settings.hideSearchResults && !onWatchPage) {
     check(CONFIG.selectors.items);
   }
   if (settings.hideSidebar) {
@@ -251,29 +291,18 @@ function startObserver() {
   observer = new MutationObserver((mutations) => {
     if (!settings.enabled) return;
 
-    let needsFullSweep = false;
-
     for (const mutation of mutations) {
       if (mutation.type !== "childList") continue;
 
       for (const node of mutation.addedNodes) {
         if (!(node instanceof Element)) continue;
-
-        // Large batch inserts (e.g. initial feed render) → defer full sweep
-        if (node.tagName === "YTD-APP" || node.tagName === "YTD-PAGE-MANAGER") {
-          needsFullSweep = true;
-          break;
-        }
-
         cleanSubtree(node);
       }
-
-      if (needsFullSweep) break;
     }
 
-    if (needsFullSweep) {
-      debouncedCleanPage();
-    }
+    // Always queue a full sweep for anything missed by cleanSubtree
+    // (e.g. parents matched via :has() only after a child was inserted)
+    debouncedCleanPage();
   });
 
   observer.observe(document.documentElement, {
