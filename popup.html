@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube Shorts Cleaner Pro</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <!-- ── Header ─────────────────────────────────────────────────────── -->
+  <header class="header">
+    <div class="logo">
+      <span class="logo-icon" aria-hidden="true">🚫</span>
+      <div class="logo-text">
+        <span class="logo-title">Shorts Cleaner</span>
+        <span class="logo-subtitle">Pro</span>
+      </div>
+    </div>
+    <div class="header-badge" id="statusBadge" title="Protection status">
+      <span id="statusDot" class="status-dot"></span>
+      <span id="statusLabel">Active</span>
+    </div>
+  </header>
+
+  <!-- ── Master toggle ──────────────────────────────────────────────── -->
+  <section class="master-section" aria-label="Master toggle">
+    <div class="master-row">
+      <div class="master-info">
+        <span class="master-title">Enable Protection</span>
+        <span class="master-desc">Hide all Shorts content</span>
+      </div>
+      <label class="toggle" for="masterToggle" aria-label="Enable protection">
+        <input type="checkbox" id="masterToggle" />
+        <span class="slider"></span>
+      </label>
+    </div>
+  </section>
+
+  <!-- ── Stats bar ──────────────────────────────────────────────────── -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat">
+      <span class="stat-value" id="hiddenCount">0</span>
+      <span class="stat-label">hidden this session</span>
+    </div>
+  </div>
+
+  <!-- ── Individual settings ────────────────────────────────────────── -->
+  <section class="settings-section" aria-label="Filter settings">
+    <h2 class="section-title">Filter Options</h2>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <label class="setting-label" for="hideHomeShelves">Homepage Shelves</label>
+        <span class="setting-desc">Remove Shorts rows on home feed</span>
+      </div>
+      <label class="toggle" aria-label="Hide homepage Shorts shelves">
+        <input type="checkbox" id="hideHomeShelves" />
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <label class="setting-label" for="hideSearchResults">Search Results</label>
+        <span class="setting-desc">Remove Shorts from search</span>
+      </div>
+      <label class="toggle" aria-label="Hide Shorts in search results">
+        <input type="checkbox" id="hideSearchResults" />
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <label class="setting-label" for="hideSidebar">Sidebar Link</label>
+        <span class="setting-desc">Remove Shorts entry from sidebar</span>
+      </div>
+      <label class="toggle" aria-label="Hide sidebar Shorts link">
+        <input type="checkbox" id="hideSidebar" />
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <label class="setting-label" for="redirectShorts">Redirect Shorts Pages</label>
+        <span class="setting-desc">Auto-redirect /shorts/ URLs to watch</span>
+      </div>
+      <label class="toggle" aria-label="Redirect Shorts pages">
+        <input type="checkbox" id="redirectShorts" />
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <label class="setting-label" for="showCounter">Show Badge Counter</label>
+        <span class="setting-desc">Display hidden count on icon</span>
+      </div>
+      <label class="toggle" aria-label="Show badge counter">
+        <input type="checkbox" id="showCounter" />
+        <span class="slider"></span>
+      </label>
+    </div>
+  </section>
+
+  <!-- ── Footer actions ─────────────────────────────────────────────── -->
+  <footer class="footer">
+    <button class="btn-reset" id="resetBtn" title="Reset all settings to defaults">
+      ↺ Reset to Defaults
+    </button>
+    <span class="version" id="versionLabel">v1.0.0</span>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
