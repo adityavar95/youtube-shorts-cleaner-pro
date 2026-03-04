@@ -77,7 +77,7 @@ let hiddenCount = 0;
 let observer = null;
 let lastUrl = location.href;
 // WeakSet prevents double-processing the same node.
-const processedNodes = new WeakSet();
+let processedNodes = new WeakSet();
 let debounceTimer = null;
 
 // ---------------------------------------------------------------------------
@@ -129,7 +129,9 @@ function hideAll(selectorList, root = document) {
 
 /** Report the current hidden count to the background service worker. */
 function reportCount() {
-  if (!settings.showCounter) return;
+  // Always clear the badge when count is 0 (e.g. extension disabled),
+  // only gate positive counts behind the showCounter setting.
+  if (!settings.showCounter && hiddenCount > 0) return;
   chrome.runtime.sendMessage({ type: "UPDATE_BADGE", count: hiddenCount }).catch(() => { });
 }
 
@@ -381,7 +383,6 @@ function watchRouteChanges() {
 // ---------------------------------------------------------------------------
 
 function applySettings(newSettings) {
-  const wasEnabled = settings.enabled;
   settings = { ...settings, ...newSettings };
 
   if (!settings.enabled) {
@@ -393,15 +394,16 @@ function applySettings(newSettings) {
     return;
   }
 
-  // (Re)start observer if we just became enabled
-  startObserver();
+  // Any setting changed while enabled — restore everything first,
+  // clear the processed set, then re-scan so only the currently-enabled
+  // filters are applied.  This ensures toggling a setting OFF actually
+  // un-hides the relevant elements immediately.
+  restoreHiddenElements();
+  hiddenCount = 0;
 
-  if (!wasEnabled && settings.enabled) {
-    cleanPage();
-  } else {
-    // Settings changed while running — do a fresh sweep
-    cleanPage();
-  }
+  // (Re)start observer
+  startObserver();
+  cleanPage();
 }
 
 /**
@@ -428,6 +430,9 @@ function restoreHiddenElements() {
   } catch {
     /* ignore selector errors */
   }
+
+  // Reset the WeakSet so elements can be re-processed on the next sweep
+  processedNodes = new WeakSet();
 }
 
 function loadSettings() {
@@ -449,27 +454,26 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // ---------------------------------------------------------------------------
 
 function init() {
-  // Handle Shorts redirect immediately before page renders content
-  if (isShortsPage() && settings.redirectShorts) {
-    // Load settings first then decide
-    chrome.storage.sync.get("settings", ({ settings: stored }) => {
-      if (stored) {
-        settings = { ...settings, ...stored };
-      }
-      if (settings.enabled && settings.redirectShorts) {
-        redirectFromShorts();
-        return;
-      }
-      startUp();
-    });
-  } else {
-    loadSettings();
+  // Always load settings from storage first, then decide what to do.
+  // This avoids the race condition where startUp() ran before settings
+  // were loaded, causing the first cleanPage() to use stale defaults.
+  chrome.storage.sync.get("settings", ({ settings: stored }) => {
+    if (stored) {
+      settings = { ...settings, ...stored };
+    }
+
+    // Handle Shorts redirect before page renders content
+    if (isShortsPage() && settings.enabled && settings.redirectShorts) {
+      redirectFromShorts();
+      return;
+    }
+
     startUp();
-  }
+  });
 }
 
 function startUp() {
-  loadSettings();
+  // Settings are already loaded by init(), no need to load again.
   watchRouteChanges();
   startObserver();
 
